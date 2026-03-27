@@ -1,9 +1,6 @@
 # Dirichlet Process Mixture Model (DPMM) for Latent Market Regimes
 ## Bayesian tail-risk filtering in systematic volatility trading
 
-# Dirichlet Process Mixture Model (DPMM) for Latent Market Regimes
-## Bayesian tail-risk filtering in systematic volatility trading
-
 ### Context
 In asset management and quantitative finance, capturing the variance risk premium, namely the spread between implied and realized volatility, is a well-known source of returns. Since market participants are willing to pay a premium for downside protection, acting as an insurer generates consistent yield. This dynamic is foundational to short-volatility strategies but leaves portfolios vulnerable to sudden market crashes.
 
@@ -121,7 +118,7 @@ For backtesting we employ $\delta_{\sigma} = 1.0$ and $\delta_{\phi} = 0.75$. Co
 
 <div align="center">
 | Strategy | Returns | Sharpe Ratio |
-| :--- | :---: | :---: |
+| :--- | :--- | :--- |
 | Long SPY | $56.124\%$ | $0.472$ |
 | Naive Short Volatility | $-111.785\%$ | $-0.528$ |
 | Conditional Short Volatility | $159.076\%$ | $1.099$ |
