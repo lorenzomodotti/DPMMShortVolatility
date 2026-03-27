@@ -1,3 +1,4 @@
-## Dirichlet Process Mixture Model (DPMM) for Latent Market Regimes
+# Dirichlet Process Mixture Model (DPMM) for Latent Market Regimes
+### Bayesian tail-risk filtering in systematic volatility trading
 
-Systematic short-volatility trading strategy leveraging a Dirichlet Process Mixture Model to identify latent market regimes.
+
