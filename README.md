@@ -117,11 +117,13 @@ For backtesting we employ $\delta_{\sigma} = 1.0$ and $\delta_{\phi} = 0.75$. Co
 - the strategy exhibits uncorrelated returns from equities, with the rolling 60-day correlation to the SPY averaging 0.05
 
 <div align="center">
+    
 | Strategy | Returns | Sharpe Ratio |
-| :--- | :--- | :--- |
+| :--- | :---: | :---: |
 | Long SPY | $56.124\%$ | $0.472$ |
 | Naive Short Volatility | $-111.785\%$ | $-0.528$ |
 | Conditional Short Volatility | $159.076\%$ | $1.099$ |
+
 </div>
 
 <p align="center">
