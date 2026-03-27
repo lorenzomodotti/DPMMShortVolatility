@@ -95,9 +95,11 @@ volatility is forecasted over a the future time horizon of $H$ days as
     \hat\sigma_{t,H} = \sqrt{\frac{252}{H}} \sqrt{H \frac{\hat\omega}{1-\hat\rho} + \left(\sigma_t^2 - \frac{\hat\omega}{1-\hat\rho}\right) \frac{\hat\rho(1-\hat\rho^H)}{1-\hat\rho} }.
 ```
 ---
+
 <p align="center">
 <img width="1185" height="696" alt="image" src="https://github.com/user-attachments/assets/57d5a795-3f60-4cf6-8dcd-a1fbf9bb98b1" />
 </p>
+
 ---
 
 ### Results & Performance
