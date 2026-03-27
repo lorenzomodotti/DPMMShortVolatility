@@ -52,6 +52,8 @@ After training the DPMM, the posterior probability that day $t$ belongs to regim
     \hat\phi_{t,k} = \frac{\exp\{\ell_{t,k}\}}{\sum_{j=1}^K \exp\{\ell_{t,j}\}}, \qquad \ell_{t,k} = \log \hat\pi_k + \log p(Y_t \, | \, \hat\beta_t, \hat\pi ; X, \tau).
 ```
 
+---
+
 <p align="center">
 <img width="889" height="428" alt="image" src="https://github.com/user-attachments/assets/0a28bbce-4c12-4d6a-80e6-3b4ee93e434e" />
 </p>
@@ -59,6 +61,8 @@ After training the DPMM, the posterior probability that day $t$ belongs to regim
 <p align="center">
 <img width="1490" height="1629" alt="image" src="https://github.com/user-attachments/assets/63d53e2f-ee11-4942-892f-494508b8aca7" />
 </p>
+
+---
 
 #### GARCH-X
 To forecast the volatility premium, the framework employs a GARCH-X model.  
@@ -90,10 +94,11 @@ volatility is forecasted over a the future time horizon of $H$ days as
 ```math
     \hat\sigma_{t,H} = \sqrt{\frac{252}{H}} \sqrt{H \frac{\hat\omega}{1-\hat\rho} + \left(\sigma_t^2 - \frac{\hat\omega}{1-\hat\rho}\right) \frac{\hat\rho(1-\hat\rho^H)}{1-\hat\rho} }.
 ```
-
+---
 <p align="center">
 <img width="1185" height="696" alt="image" src="https://github.com/user-attachments/assets/57d5a795-3f60-4cf6-8dcd-a1fbf9bb98b1" />
 </p>
+---
 
 ### Results & Performance
 The data comprises:
