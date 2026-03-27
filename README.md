@@ -116,6 +116,8 @@ For backtesting we employ $\delta_{\sigma} = 1.0$ and $\delta_{\phi} = 0.75$. Co
 - the strategy generates genuine alpha by achieving a total cumulative return of 159.08% (against the 56.12% of the SPY baseline) and a Sharpe Ratio of 1.10 (against 0.47)
 - the strategy exhibits uncorrelated returns from equities, with the rolling 60-day correlation to the SPY averaging 0.05
 
+---
+
 <div align="center">
     
 | Strategy | Returns | Sharpe Ratio |
@@ -126,18 +128,42 @@ For backtesting we employ $\delta_{\sigma} = 1.0$ and $\delta_{\phi} = 0.75$. Co
 
 </div>
 
+---
+
 <p align="center">
 <img width="1186" height="695" alt="image" src="https://github.com/user-attachments/assets/a556f370-c868-4e96-8e24-7dd71dc949e9" />
 </p>
+
+---
 
 <p align="center">
 <img width="1189" height="390" alt="image" src="https://github.com/user-attachments/assets/2e8f8ef1-6515-4cdc-8aac-fdc964b65067" />
 </p>
 
 <p align="center">
-<img width="1186" height="489" alt="image" src="https://github.com/user-attachments/assets/2c7569f4-8977-4cdb-a5a4-b153a6ee4bee" />
+<img width="1189" height="390" alt="image" src="https://github.com/user-attachments/assets/e2642e19-04e9-443f-8a0e-c9a6e11295e1" />
 </p>
 
 <p align="center">
+<img width="1189" height="390" alt="image" src="https://github.com/user-attachments/assets/c55f0557-09bd-40d9-879e-589095f01b9e" />
+</p>
+
+---
+
+<p align="center">
+<img width="1186" height="489" alt="image" src="https://github.com/user-attachments/assets/2c7569f4-8977-4cdb-a5a4-b153a6ee4bee" />
+</p>
+
+---
+
+<p align="center">
 <img width="1042" height="374" alt="image" src="https://github.com/user-attachments/assets/b330604f-1032-4c3c-b56b-9372866309f9" />
+</p>
+
+<p align="center">
+<img width="1037" height="374" alt="image" src="https://github.com/user-attachments/assets/711f3345-fea4-448e-9b06-b2d00420692e" />
+</p>
+
+<p align="center">
+<img width="1042" height="374" alt="image" src="https://github.com/user-attachments/assets/5b38348e-dca7-46a0-a077-8939e0276664" />
 </p>
