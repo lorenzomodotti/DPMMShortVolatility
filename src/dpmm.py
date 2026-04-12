@@ -1,7 +1,76 @@
+import pandas as pd
+import numpy as np
+import logging
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
+from torch.utils.data import DataLoader
+from src.data_transformer import VolatilitySmileDataset
+
+logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
+
+def seed_torch(seed=124):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
+def dpmm_train(iv_train, spline_basis, D, K = 2):
+
+    seed_torch()
+    
+    # Initialize volatility smile dataset
+    dataset_dpmm_train = VolatilitySmileDataset(spline_basis, iv_train)
+    # Initialize dataloader
+    dataloader_train = DataLoader(dataset_dpmm_train, batch_size=len(dataset_dpmm_train), shuffle=True)
+
+    # Initialize prior means
+    prior_mean_init = dataset_dpmm_train.get_prior_mean_init(method='kmeans', K=K)
+
+    # Initialize DPMM
+    dpmm = DPMM(
+        K=K, 
+        D=D, 
+        num_samples=len(dataset_dpmm_train),
+        prior_mean_init=prior_mean_init
+    )
+
+    # Train DPMM
+    trainer = pl.Trainer(
+        max_epochs=100, 
+        accelerator="auto",
+        enable_progress_bar=False,
+        enable_model_summary=False,
+        enable_checkpointing=False
+    )
+    trainer.fit(dpmm, train_dataloaders=dataloader_train)
+
+    return dpmm
+
+def dpmm_forecast(dpmm, iv_test, spline_transformer, dates):
+    
+    # Initialize volatility smile dataset
+    spline_basis = spline_transformer.get_basis().astype(np.float32)
+    dataset_dpmm_test = VolatilitySmileDataset(spline_basis, iv_test)
+    # Initialize dataloader
+    dataloader_test = DataLoader(dataset_dpmm_test, batch_size=len(dataset_dpmm_test), shuffle=False)
+    
+    # Compute posterior probabilities
+    dpmm.eval()
+    with torch.no_grad():
+        full_batch = next(iter(dataloader_test))
+        posterior_probabilities = dpmm.get_posterior_probabilities(full_batch['x'], full_batch['y'])
+        index_panic_cluster = dpmm.get_index_panic_cluster(spline_transformer)
+
+    df_regimes = pd.DataFrame(
+        posterior_probabilities, 
+        index=dates, 
+        columns=[f'cluster_{k}' for k in range(posterior_probabilities.shape[1])]
+    )
+    # Add and impute missing trading days
+    return df_regimes, index_panic_cluster
+
 
 class DPMM(pl.LightningModule):
     """

@@ -1,0 +1,7 @@
+*.parquet
+*.csv
+*.pyc
+*.Rhistory
+*.ipynb
+*.yaml
+*.ckpt

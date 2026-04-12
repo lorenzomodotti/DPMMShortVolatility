@@ -10,16 +10,16 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-def plot_volatility(garch_vol_forecast, atm_iv, vol):
+def plot_volatility(vol_forecast, atm_iv, vol):
     """
     Plot forecasted volatility by GARCH, ATM implied volatility, and realized volatility
     """
 
     fig, ax = plt.subplots(figsize=(12, 7))
     
-    ax.plot(vol.index, vol, label='21-day Volatility', color='darkgray')
+    ax.plot(vol.index, vol, label='21-day Average Realized Volatility', color='darkgray')
     ax.fill_between(vol.index, vol, 0, color='darkgray', alpha=0.25)
-    ax.plot(garch_vol_forecast.index, garch_vol_forecast, label='21-day GARCH Volatility', color='black')
+    ax.plot(vol_forecast.index, vol_forecast, label='21-day Forecasted Volatility', color='black')
     ax.plot(atm_iv.index, atm_iv, label='30-day ATM Implied Volatility', color='slateblue')
     
     ax.set_title("Volatility Comparison", fontsize=14)
@@ -253,3 +253,33 @@ def print_sharpes(sharpes_dict):
     print(f" > Long SPY: {sharpes_dict['long']:.3f}")
     print(f" > Naive Short Volatility: {sharpes_dict['naive']:.3f}")
     print(f" > Conditional Short Volatility: {sharpes_dict['conditional']:.3f}")
+
+def print_backtest_metrics(backtest_metrics):
+    print("\n----- Backtest Results -----")
+    print(f"Total Return: {backtest_metrics['total_return']:.4f}")
+    print(f"Sharpe Ratio (Alpha): {backtest_metrics['alpha_sharpe_ratio']:.4f}")
+    print(f"Sharpe Ratio: {backtest_metrics['sharpe_ratio']:.4f}")
+    print(f"Sortino Ratio: {backtest_metrics['sortino_ratio']:.4f}")
+    print(f"Maximum Drawdown: {backtest_metrics['max_drawdown']:.4f}")
+    print(f"Number of Trades: {backtest_metrics['trade_count']:.0f}")
+    print(f"Turnover: {backtest_metrics['turnover']:.0f}")
+    print("----- ---------------- -----\n")
+
+def plot_equity_curve(equity_curve, initial_capital):
+    """
+    Plot the performance of the trading strategies
+    """
+
+    equity_curve = equity_curve / initial_capital
+    
+    plt.figure(figsize=(12, 4))
+    
+    plt.plot(equity_curve.index, equity_curve, label='Conditional Short Volatility', color='black', linewidth=2)
+    
+    plt.title("Performance Comparison", fontsize=14)
+    plt.ylabel("Returns (%)", fontsize=12)
+    plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
+    plt.grid(True, alpha=0.3)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False)
+    plt.tight_layout()
+    plt.show()
