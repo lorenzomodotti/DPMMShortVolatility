@@ -4,7 +4,6 @@ import torch
 from scipy.interpolate import BSpline, interp1d
 from sklearn.cluster import KMeans, AgglomerativeClustering
 from torch.utils.data import Dataset
-from src.logger import LOGGER
 
 class SplineTransformer:
     def __init__(self, log_moneyness, quantiles, degree = 3):
@@ -18,8 +17,13 @@ class SplineTransformer:
         grid_points = np.quantile(log_moneyness, quantiles)
         self.moneyness_grid = np.unique(np.sort(np.append(grid_points, 0.0)))
 
-        # Index of ATM (moneyness = 1, log_moneyness = 0) in grid
-        self.atm_index = np.searchsorted(self.moneyness_grid, 0.0)
+        # Create indices for ATM, and OTM put/call
+        target_atm_val = 0.0
+        target_call_val = np.quantile(log_moneyness, quantiles[1])
+        target_put_val = np.quantile(log_moneyness, quantiles[-2])
+        self.atm_index = np.searchsorted(self.moneyness_grid, target_atm_val)
+        self.call_index = np.searchsorted(self.moneyness_grid, target_call_val)
+        self.put_index = np.searchsorted(self.moneyness_grid, target_put_val)
         
         # Inner knots
         self.inner_knots = self.moneyness_grid[1:-1]
@@ -29,9 +33,7 @@ class SplineTransformer:
         self.upper_bound = self.moneyness_grid[-1]
         
         # Knots
-        self.knots = np.concatenate(([self.lower_bound] * degree, 
-                                     self.inner_knots, 
-                                     [self.upper_bound] * degree))
+        self.knots = np.concatenate(([self.lower_bound] * degree, self.inner_knots, [self.upper_bound] * degree))
         
         # Number of basis elements
         self.num_basis = len(self.knots) - (degree + 1)
@@ -41,8 +43,6 @@ class SplineTransformer:
         
         # BSpline object
         self.bspline_obj = BSpline(self.knots, self.eye_coeffs, self.degree)
-
-        #LOGGER.info(f"Spline transformer initialized: \n >D={self.num_basis} basis elements \n >Grid={self.moneyness_grid}")
     
     def get_moneyness_grid(self):
         return self.moneyness_grid
@@ -70,6 +70,9 @@ class SplineTransformer:
 class IVSmoother:
 
     def __init__(self, moneyness_grid, target_time_to_expiry = 30):
+        """
+        Interpolate implied volatility over expiries to get smooth values at target expiry
+        """
 
         # Time to expiry (years)
         self.target_time_to_expiry = target_time_to_expiry / 365.0
@@ -82,7 +85,7 @@ class IVSmoother:
 
     def _get_variance_on_grid(self, group_expiry):
         """
-        Fit spline to raw data for a specific expiry and evaluates on grid
+        Fit spline to raw total variance for a specific expiry and evaluates on grid
         """
         # Raw data
         k_obs = group_expiry['log_moneyness'].values
@@ -102,6 +105,9 @@ class IVSmoother:
         return np.maximum(grid_variances, 1e-9)
     
     def _get_volatility_at_time_to_expiry(self, group, tolerance_years = 0.006):
+        """
+        Interpolate volatility over expiries
+        """
         # Available expiries for the trading day
         expiries = np.sort(group['time_to_expiry'].unique())
 
@@ -135,6 +141,9 @@ class IVSmoother:
         return np.sqrt(np.maximum(var_vector, 1e-9) / self.target_time_to_expiry)
     
     def get_iv(self, df):
+        """
+        Return smooth implied volatility smiles and ATM implied volatility for each day
+        """
         # Clean data
         df = (df
                 .reset_index()

@@ -8,6 +8,7 @@ from src.pricing import bs_price
 class Tranche:
     entry_date: pd.Timestamp
     exit_date: pd.Timestamp
+    expiration_date: pd.Timestamp
     strike: float
     entry_iv: float
     entry_price: float
@@ -19,12 +20,21 @@ class Tranche:
         self.mtm_history = []
 
 class Backtester:
-    def __init__(self, initial_capital=1_000_000, slippage_pct=0.01, fixed_fee=1.0, leverage=1.0, horizon=21):
+    def __init__(
+            self, 
+            initial_capital, 
+            slippage_pct, 
+            fixed_fee, 
+            leverage, 
+            horizon, 
+            margin_requirement
+        ):
         self.initial_capital = initial_capital
         self.slippage_pct = slippage_pct
         self.fixed_fee = fixed_fee
         self.leverage = leverage
         self.horizon = horizon
+        self.margin_requirement = margin_requirement
         
         self.trade_count = 0
         self.open_tranches = []
@@ -33,27 +43,28 @@ class Backtester:
         self.equity_curve = []
         self.daily_pnl_log = []
 
-    def get_synthetic_prices(self, F, K, T, r, iv, spread_ratio):
+    def get_synthetic_straddle_prices(self, F, K, T, r, iv, spread_ratio):
         """
-        Calculates Synthetic Mid, Bid, and Ask based on interpolated IV 
-        and the Spread Ratio from nearby actual options.
+        Calculate synthetic mid, bid, and ask for an ATM Straddle (call + put)
         """
-        # 1. Get Synthetic Mid via Black-76
-        mid_price = bs_price(F, K, T, r, iv, True)
+        # Mid for both legs
+        call_mid = bs_price(F, K, T, r, iv, True)
+        put_mid = bs_price(F, K, T, r, iv, False)
+        straddle_mid = call_mid + put_mid
         
-        # 2. Recover Bid/Ask from Spread Ratio
-        # Spread Ratio = (Actual Ask - Actual Bid) / Actual Mid
-        half_spread = (mid_price * spread_ratio) / 2
+        # Bid/Ask from spread ratio
+        half_spread = (straddle_mid * spread_ratio) / 2
         
-        bid = max(0.01, mid_price - half_spread)
-        ask = max(0.01, mid_price + half_spread)
+        bid = max(0.01, straddle_mid - half_spread)
+        ask = max(0.01, straddle_mid + half_spread)
         
-        return bid, mid_price, ask
+        return bid, straddle_mid, ask
 
     def _get_exit_date(self, entry_date, days=30):
-        """Logic to handle weekend expirations (Close on Friday)."""
+        """
+        Get exit date accounting for weekends: if Saturday (5) or Sunday (6), anticipate to Friday (4)
+        """
         target_date = entry_date + timedelta(days=days)
-        # If Saturday (5) or Sunday (6), move to Friday (4)
         if target_date.weekday() == 5:
             return target_date - timedelta(days=1)
         elif target_date.weekday() == 6:
@@ -62,8 +73,7 @@ class Backtester:
     
     def _liquidate(self, df, current_equity):
         """
-        Closes all open tranches at the final row's synthetic Ask price.
-        Ensures validation metrics account for the cost of closing the portfolio.
+        Close all open tranches
         """
         if not self.open_tranches:
             return current_equity
@@ -73,33 +83,30 @@ class Backtester:
         terminal_adjustment = 0
         
         for tranche in self.open_tranches[:]:
-            # How much time is left until its natural expiry?
+            # Time to expiry
             time_remaining = max(0.0001, (tranche.exit_date - final_date).days / 365.0)
             
-            # We must BUY BACK (at the ASK) to liquidate a short position
-            _, _, synth_ask = self.get_synthetic_prices(
+            # Get prices
+            bid, mid, ask = self.get_synthetic_straddle_prices(
                 last_row['forward'], tranche.strike, time_remaining,
                 last_row['r_annual'], last_row['atm_iv'], last_row['spread_ratio']
             )
             
-            # Exit price includes slippage and commissions
-            exit_price_total = synth_ask * (1 + self.slippage_pct)
+            # Exit price including slippage
+            exit_price_total = ask * (1 + self.slippage_pct)
+            # half_spread = (mid * last_row['spread_ratio']) / 2
+            # exit_price_total = mid + (half_spread * self.slippage_pct)
             
             # Calculate the final realized PnL for this tranche
-            final_realized_pnl = ((tranche.entry_price - exit_price_total) * tranche.quantity * 100) \
-                                - (self.fixed_fee * tranche.quantity)
+            final_realized_pnl = ((tranche.entry_price - exit_price_total) * tranche.quantity * 100) - (self.fixed_fee * tranche.quantity)
             
-            # The equity curve is already marked to Mid. 
-            # We need to add the difference between 'Final Realized' and 'Last Mid-based MtM'
             prev_mtm = tranche.mtm_history[-1] if tranche.mtm_history else 0
             terminal_adjustment += (final_realized_pnl - prev_mtm)
-            
-            # Cleanup
+        
             tranche.is_active = False
             self.closed_tranches.append(tranche)
             self.open_tranches.remove(tranche)
 
-        # Apply the final adjustment to the last point in the equity curve
         current_equity += terminal_adjustment
         self.equity_curve[-1] = current_equity
         
@@ -112,25 +119,34 @@ class Backtester:
             today = row['date']
             self.trading_days.append(today)
 
-            # 1. Interest on cash balance
+            # Interest on cash balance
             interest_earned = current_equity * row['r_daily']
             
-            # 2. Update existing positions (MtM and Exits)
+            # Update open tranches
             daily_mtm_change = 0
             for tranche in self.open_tranches[:]:
-                time_remaining = max(0, (tranche.exit_date - today).days) / 365.0
+                
+                time_remaining = max(0, (tranche.expiration_date - today).days) / 365.0
                 
                 if today >= tranche.exit_date:
-                    # EXIT: Use ASK price (to buy back the short) + slippage + fees
-                    _, _, synth_ask = self.get_synthetic_prices(
-                        row['forward'], tranche.strike, 0.0001,
+                    # Close position
+                    
+                    # Time to expiry
+                    time_remaining = max(0, (tranche.expiration_date - today).days) / 365.0
+                    
+                    # Get prices
+                    bid, mid, ask = self.get_synthetic_straddle_prices(
+                        row['forward'], tranche.strike, time_remaining, 
                         row['r_annual'], row['atm_iv'], row['spread_ratio']
                     )
-                    exit_price = synth_ask * (1 + self.slippage_pct)
+
+                    # Exit price including slippage
+                    exit_price = ask * (1 + self.slippage_pct)
+                    # half_spread = (mid * row['spread_ratio']) / 2
+                    # exit_price = mid + (half_spread * self.slippage_pct)
                     
-                    # Total Dollar PnL for the tranche
-                    realized_pnl = ((tranche.entry_price - exit_price) * tranche.quantity * 100) \
-                                   - (self.fixed_fee * tranche.quantity)
+                    # Total PnL for the tranche
+                    realized_pnl = ((tranche.entry_price - exit_price) * tranche.quantity * 100) - (self.fixed_fee * tranche.quantity)
                     
                     prev_mtm = tranche.mtm_history[-1] if tranche.mtm_history else 0
                     daily_mtm_change += (realized_pnl - prev_mtm)
@@ -139,42 +155,52 @@ class Backtester:
                     self.closed_tranches.append(tranche)
                     self.open_tranches.remove(tranche)
                 else:
-                    # MtM: Mark to Synthetic MID
-                    _, current_mid, _ = self.get_synthetic_prices(
+                    # Update MtM with current price
+
+                    # Get price
+                    bid, mid, ask = self.get_synthetic_straddle_prices(
                         row['forward'], tranche.strike, time_remaining, 
                         row['r_annual'], row['atm_iv'], row['spread_ratio']
                     )
-                    current_tranche_pnl = (tranche.entry_price - current_mid) * tranche.quantity * 100
+                    current_tranche_pnl = (tranche.entry_price - ask) * tranche.quantity * 100
                     prev_mtm = tranche.mtm_history[-1] if tranche.mtm_history else 0
                     
                     daily_mtm_change += (current_tranche_pnl - prev_mtm)
                     tranche.mtm_history.append(current_tranche_pnl)
 
-            # 3. Update Equity before potentially entering new trades
+            # Update equity curve and alpha pnl
             total_daily_change = daily_mtm_change + interest_earned
             current_equity += total_daily_change
             self.daily_pnl_log.append(total_daily_change)
             self.equity_curve.append(current_equity)
             
 
-            # 4. New Entry Logic
+            # Open new tranches
             if trading_signal[today] == 1:
-                # Laddered Notional Sizing
-                notional_per_contract = row['close'] * 100
+                
+                # Dollar amount of margin requirement
+                margin_requirement_per_straddle = (row['close'] * 100) * self.margin_requirement
+                # Dollar amount to allocate
                 daily_allocation = (current_equity * self.leverage) / self.horizon
-                num_contracts = int(daily_allocation // notional_per_contract)
+                # Number of contracts to buy
+                num_contracts = int(daily_allocation // margin_requirement_per_straddle)
                 
                 if num_contracts > 0:
-                    synth_bid, _, _ = self.get_synthetic_prices(
-                        row['forward'], row['close'], 30/365.0,
+                    # Get price
+                    bid, mid, ask = self.get_synthetic_straddle_prices(
+                        row['forward'], row['close'], 14/365.0, 
                         row['r_annual'], row['atm_iv'], row['spread_ratio']
                     )
-                    # We receive the BID - slippage
-                    entry_price = synth_bid * (1 - self.slippage_pct)
+                    # Enter price including slippage
+                    entry_price = bid * (1 - self.slippage_pct)
+                    # half_spread = (mid * row['spread_ratio']) / 2
+                    # entry_price = mid - (half_spread * self.slippage_pct)
                     
+                    # Open new tranche
                     new_tranche = Tranche(
                         entry_date=today,
-                        exit_date = self._get_exit_date(today, 30),
+                        exit_date=self._get_exit_date(today, self.horizon),
+                        expiration_date=self._get_exit_date(today, 14),
                         strike=row['close'],
                         entry_iv=row['atm_iv'],
                         entry_price=entry_price,
@@ -192,7 +218,6 @@ class Backtester:
         if excess_returns.std() == 0:
             return 0
         return (excess_returns.mean() / excess_returns.std()) * np.sqrt(252)
-    
 
     def compute_sortino_ratio(self, returns, risk_free_rate = 0.0):
         excess_returns = returns - risk_free_rate

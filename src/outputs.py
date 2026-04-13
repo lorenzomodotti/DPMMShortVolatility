@@ -5,12 +5,14 @@ Logic to plot and print data
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
 import matplotlib.ticker as mtick
+from matplotlib import colormaps
 import torch
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from src.config import *
 
-def plot_volatility(vol_forecast, atm_iv, vol):
+def plot_volatility(vol_forecast, atm_iv, vol, path = None):
     """
     Plot forecasted volatility by GARCH, ATM implied volatility, and realized volatility
     """
@@ -29,9 +31,12 @@ def plot_volatility(vol_forecast, atm_iv, vol):
     
     plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.1), ncol=3, frameon=False)
     plt.tight_layout()
-    plt.show()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
 
-def plot_cluster_centroids(dpmm, spline_transformer, labels=None):
+def plot_cluster_centroids(dpmm, spline_transformer, labels=None, path = None):
     """
     Plot the K cluster centroids (volatility smiles) learned by the DPMM
     """
@@ -49,14 +54,24 @@ def plot_cluster_centroids(dpmm, spline_transformer, labels=None):
         coeffs = dpmm.q_mu.cpu()
         curves = torch.matmul(basis_grid.cpu(), coeffs.T).numpy()
 
+    color_palette = colormaps['Pastel2']
+
     if labels is None:
         labels = [f"Cluster {k}" for k in range(K)]
+        colors = [color_palette(k) for k in range(K)]
+    else:
+        colors = []
+        remaining_indices = [i for i in range(K) if i != 1]
+        other_idx_iter = iter(remaining_indices)
+        for label in labels:
+            if label == 'Panic Regime':
+                colors.append(color_palette(1))
+            else:
+                colors.append(color_palette(next(other_idx_iter)))
 
-    color_palette = plt.cm.get_cmap('Pastel2')
-    colors = [color_palette(k) for k in range(K)]
         
     plt.figure(figsize=(9, 5))
-    for k in range(dpmm.K):
+    for k in range(K):
         plt.plot(plot_grid, curves[:, k], linewidth=2.5, color=colors[k], label=labels[k])
     plt.title(f"Market Regimes (Posterior Centroids)", fontsize=14)
     plt.xlabel("Log-Moneyness", fontsize=12)
@@ -64,9 +79,12 @@ def plot_cluster_centroids(dpmm, spline_transformer, labels=None):
     plt.grid(True, alpha=0.3)
     plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.5), ncol=3, frameon=False)
     plt.tight_layout()
-    plt.show()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
 
-def plot_cluster_probabilities(df_regimes, vol_series, price_series, rolling_window=1, labels=None):
+def plot_cluster_probabilities(df_regimes, vol_series, price_series, rolling_window=1, labels=None, path = None):
     """
     Plot the evolution of cluster probabilities over time using a stacked area chart
     """
@@ -81,11 +99,20 @@ def plot_cluster_probabilities(df_regimes, vol_series, price_series, rolling_win
 
     fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(15, 16), sharex=True)
 
+    color_palette = colormaps['Pastel2']
+
     if labels is None:
         labels = [f"Cluster {k}" for k in range(K)]
-
-    color_palette = plt.cm.get_cmap('Pastel2')
-    colors = [color_palette(i) for i in range(K)]
+        colors = [color_palette(k) for k in range(K)]
+    else:
+        colors = []
+        remaining_indices = [i for i in range(K) if i != 1]
+        other_idx_iter = iter(remaining_indices)
+        for label in labels:
+            if label == 'Panic Regime':
+                colors.append(color_palette(1))
+            else:
+                colors.append(color_palette(next(other_idx_iter)))
 
     # Upper plot: regimes vs vol
 
@@ -117,7 +144,10 @@ def plot_cluster_probabilities(df_regimes, vol_series, price_series, rolling_win
     fig.legend(loc='lower center', bbox_to_anchor=(0.5, -0.03), ncol=(K), frameon=False)
     
     plt.tight_layout()
-    plt.show()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
 
 def plot_performance(results_df, df_daily):
     """
@@ -147,7 +177,7 @@ def plot_performance(results_df, df_daily):
     plt.tight_layout()
     plt.show()
 
-def plot_drawdown(curve, label):
+def plot_drawdown(curve, label, path=None):
     """
     Calculate and plot drawdown
     """
@@ -163,7 +193,10 @@ def plot_drawdown(curve, label):
     plt.ylabel("Drawdown (%)")
     plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
     plt.grid(True, alpha=0.3)
-    plt.show()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
 
 def plot_monthly_returns(daily_returns, label):
     """
@@ -265,7 +298,7 @@ def print_backtest_metrics(backtest_metrics):
     print(f"Turnover: {backtest_metrics['turnover']:.0f}")
     print("----- ---------------- -----\n")
 
-def plot_equity_curve(equity_curve, initial_capital):
+def plot_equity_curve(equity_curve, initial_capital, path = None):
     """
     Plot the performance of the trading strategies
     """
@@ -282,4 +315,44 @@ def plot_equity_curve(equity_curve, initial_capital):
     plt.grid(True, alpha=0.3)
     plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False)
     plt.tight_layout()
-    plt.show()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
+
+def plot_price(price_series, path = None):
+
+    plt.figure(figsize=(12, 4))
+
+    plt.plot(price_series.index, price_series, color='black', linestyle = '-')
+    plt.ylabel("SPY Price")
+    plt.grid(True, alpha=0.3)
+
+    plt.tight_layout()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
+
+def plot_signals(edge, fear_score, path = None):
+
+    fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 8), sharex=True)
+
+    ax1.plot(edge.index, edge, color='black', linestyle = '-', label='Edge')
+    ax1.set_ylabel("Edge")
+    ax1.grid(True, alpha=0.3)
+
+    ax2.plot(fear_score.index, fear_score, color='black', linestyle = '-', label='Fear Score')
+    ax2.set_ylabel("Fear Score", rotation=270, labelpad=15)
+    ax2.grid(True, alpha=0.3)
+
+    fig.legend(loc='lower center', bbox_to_anchor=(0.5, -0.03), frameon=False)
+
+    
+    plt.tight_layout()
+    plt.subplots_adjust(bottom=0.2)
+
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()

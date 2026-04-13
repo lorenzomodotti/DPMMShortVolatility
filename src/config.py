@@ -1,5 +1,14 @@
-# Initial data for training/backtesting
-FIRST_DATE = '2019-02-09'
+# Number of moneyness levels (quantiles)
+M = 16
+
+# Number of regimes to identify
+K = 4
+
+# Target expiry (days)
+target_time_to_expiry = 30
+
+# Forecast horizon (days)
+forecast_horizon = 21
 
 # Path to processed 1-minute intraday SPY OHLC data
 PATH_SPY_INTRADAY_OHLC = 'data/spy_1min_ohlc.parquet'
@@ -19,3 +28,17 @@ PATH_SPY_DIVIDED = "raw_data/spy_dividend.csv"
 # Path to dataframe with WFO validation/optimization results
 PATH_DF_VALID_RESULTS = "outputs/wfo_valid_results_{}.csv"
 
+# Path volatility plot
+PATH_PLOT_VOLATILITY = "plots/volatility.png"
+
+# Path price plot
+PATH_PLOT_PRICE = "plots/price.png"
+
+# Path price signals
+PATH_PLOT_SIGNALS = "plots/signals.png"
+
+# Path equity curve plot
+PATH_PLOT_EQUITY = "plots/equity_curve_{}.png"
+
+# Path drawdown plot
+PATH_PLOT_DRAWDOWN = "plots/drawdown_{}.png"

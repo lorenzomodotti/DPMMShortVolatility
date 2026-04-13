@@ -3,12 +3,18 @@ import numpy as np
 import statsmodels.api as sm
 
 def har_train(df_realized_vol_train, horizon = 21):
+    """
+    Train HAR
+    """
     
     har = HAR(horizon = horizon)
     har.fit(df_realized_vol_train)
     return har
 
 def har_forecast(har, df_realized_vol_test):
+    """
+    Compute average volatility over the future time horizon
+    """
     
     har_vol_forecast = pd.Series(
         har.forecast(df_realized_vol_test),
@@ -27,11 +33,11 @@ class HAR:
         self.horizon = horizon
         self.model = None
 
-    def _get_train_data(self, df, atm_iv = None):
+    def _get_train_data(self, df):
 
         data = df.copy()
 
-        # Daily component: today's volatility
+        # Daily component: today volatility
         data['vol_daily'] = data['vol']
         # Weekly component: rolling average of the last 5 days, including today
         data['vol_weekly'] = data['vol'].rolling(window=5).mean()
@@ -43,12 +49,7 @@ class HAR:
 
         data = data.dropna()
 
-        # If ATM IV is provided add as a regressor
-        if atm_iv is not None:
-            data = data.merge(atm_iv, how='inner', left_index=True, right_index=True)
-            X = data[['vol_daily', 'vol_weekly', 'vol_monthly', 'atm_iv']]
-        else:
-            X = data[['vol_daily', 'vol_weekly', 'vol_monthly']]
+        X = data[['vol_daily', 'vol_weekly', 'vol_monthly']]
         # Add constant
         X = sm.add_constant(X)
         
@@ -56,7 +57,7 @@ class HAR:
 
         return X, y
     
-    def _get_test_data(self, df, atm_iv = None):
+    def _get_test_data(self, df):
 
         data = df.copy()
 
@@ -69,21 +70,16 @@ class HAR:
 
         data = data.dropna()
 
-        # If ATM IV is provided add as a regressor
-        if atm_iv is not None:
-            data = data.merge(atm_iv, how='inner', left_index=True, right_index=True)
-            X = data[['vol_daily', 'vol_weekly', 'vol_monthly', 'atm_iv']]
-        else:
-            X = data[['vol_daily', 'vol_weekly', 'vol_monthly']]
+        X = data[['vol_daily', 'vol_weekly', 'vol_monthly']]
         # Add constant
         X = sm.add_constant(X)
 
         return X
     
-    def fit(self, df, atm_iv = None, summary = False):
+    def fit(self, df, summary = False):
         
         # Prepare data
-        X, y = self._get_train_data(df, atm_iv)
+        X, y = self._get_train_data(df)
 
         # Fit model
         self.model = sm.OLS(y, X).fit(cov_type='HAC', cov_kwds={'maxlags': self.horizon})
@@ -92,12 +88,12 @@ class HAR:
             print(self.model.summary())
 
 
-    def forecast(self, df, atm_iv = None):
+    def forecast(self, df):
 
         if self.model is not None:
 
             # Prepare data
-            X = self._get_test_data(df, atm_iv)
+            X = self._get_test_data(df)
 
             # Forecast
             y_hat = self.model.predict(X)

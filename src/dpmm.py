@@ -6,7 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from torch.utils.data import DataLoader
-from src.data_transformer import VolatilitySmileDataset
+from src.data_transformers import VolatilitySmileDataset
 
 logging.getLogger("pytorch_lightning").setLevel(logging.ERROR)
 
@@ -17,6 +17,9 @@ def seed_torch(seed=124):
     torch.backends.cudnn.benchmark = False
 
 def dpmm_train(iv_train, spline_basis, D, K = 2):
+    """
+    Train DPMM
+    """
 
     seed_torch()
     
@@ -48,7 +51,10 @@ def dpmm_train(iv_train, spline_basis, D, K = 2):
 
     return dpmm
 
-def dpmm_forecast(dpmm, iv_test, spline_transformer, dates):
+def dpmm_forecast(dpmm, iv_test, spline_transformer, atm_iv_historical_avg, dates):
+    """
+    Compute posterior probabilities, posterior mean volatility smiles, and posterior fear scores
+    """
     
     # Initialize volatility smile dataset
     spline_basis = spline_transformer.get_basis().astype(np.float32)
@@ -56,20 +62,19 @@ def dpmm_forecast(dpmm, iv_test, spline_transformer, dates):
     # Initialize dataloader
     dataloader_test = DataLoader(dataset_dpmm_test, batch_size=len(dataset_dpmm_test), shuffle=False)
     
-    # Compute posterior probabilities
     dpmm.eval()
     with torch.no_grad():
         full_batch = next(iter(dataloader_test))
+        # Compute posterior probabilities
         posterior_probabilities = dpmm.get_posterior_probabilities(full_batch['x'], full_batch['y'])
-        index_panic_cluster = dpmm.get_index_panic_cluster(spline_transformer)
+        # Compute posterior fear scores
+        posterior_fear_scores = dpmm.get_feat_score(spline_transformer, posterior_probabilities, atm_iv_historical_avg)
 
-    df_regimes = pd.DataFrame(
-        posterior_probabilities, 
+    return pd.Series(
+        posterior_fear_scores, 
         index=dates, 
-        columns=[f'cluster_{k}' for k in range(posterior_probabilities.shape[1])]
+        name='fear_score'
     )
-    # Add and impute missing trading days
-    return df_regimes, index_panic_cluster
 
 
 class DPMM(pl.LightningModule):
@@ -101,7 +106,7 @@ class DPMM(pl.LightningModule):
         else:
             self.register_buffer('prior_means', torch.zeros(self.K, self.D))
 
-        # q_logvar: (K, D) - Uncertainty about the shape
+        # Uncertainty about the shape
         self.q_logvar = nn.Parameter(torch.ones(self.K, self.D) * -4.0)
 
         # DP stick breaking weights
@@ -200,7 +205,7 @@ class DPMM(pl.LightningModule):
     @torch.no_grad()
     def get_posterior_probabilities(self, batch_X, batch_Y):
         """
-        Return posterior probability of each regime
+        Return posterior probability of each regime for each day in the batch
         """
         batch_size = batch_X.shape[0]
         Y_hat = torch.matmul(batch_X, self.q_mu.T)
@@ -219,9 +224,15 @@ class DPMM(pl.LightningModule):
         return F.softmax(log_rho, dim=1)
     
     @torch.no_grad()
-    def get_index_panic_cluster(self, spline_transformer):
-        # ATM grid index
+    def get_feat_score(self, spline_transformer, posterior_probabilities, atm_iv_historical_avg = 1.0):
+        """
+        Return fear score for each day in the batch
+        """
+
+        # Indices for ATM, and OTM put/call
         atm_index = spline_transformer.atm_index
+        put_index = spline_transformer.put_index
+        call_index = spline_transformer.call_index
 
         # Grid for plotting
         plot_grid = spline_transformer.moneyness_grid
@@ -233,4 +244,23 @@ class DPMM(pl.LightningModule):
         coeffs = self.q_mu.cpu()
         curves = torch.matmul(basis_grid.cpu(), coeffs.T)
 
-        return int(torch.argsort(curves[atm_index,:])[-1])
+        # Posterior mean volatility smile
+        posterior_curve = torch.matmul(posterior_probabilities, curves.T)
+
+        # ATM IV
+        atm_iv = posterior_curve[:, atm_index]
+        # Put IV
+        put_iv = posterior_curve[:, put_index]
+        # Call IV
+        call_iv = posterior_curve[:, call_index]
+
+        # Level
+        L = torch.div(atm_iv, torch.from_numpy(atm_iv_historical_avg))
+        # Skew
+        S = (put_iv - atm_iv) / atm_iv
+        # Curvature
+        C = (put_iv + call_iv - 2*atm_iv) / atm_iv
+
+        # Fear score
+        return 0.2 * L + 0.6 * S + 0.2 * C
+
