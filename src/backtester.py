@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 from dataclasses import dataclass
 from datetime import timedelta
-from src.pricing import bs_price
+from src.pricing import bs_price, compute_sharpe_ratio, compute_sortino_ratio
 
 @dataclass
 class Tranche:
@@ -212,21 +212,6 @@ class Backtester:
         if liquidate:
             current_equity = self._liquidate(df, current_equity)
 
-    
-    def compute_sharpe_ratio(self, returns, risk_free_rate = 0.0):
-        excess_returns = returns - risk_free_rate
-        if excess_returns.std() == 0:
-            return 0
-        return (excess_returns.mean() / excess_returns.std()) * np.sqrt(252)
-
-    def compute_sortino_ratio(self, returns, risk_free_rate = 0.0):
-        excess_returns = returns - risk_free_rate
-        downside_returns = excess_returns[excess_returns < 0]
-        if len(downside_returns) < 2 or downside_returns.std() == 0:
-            return 0
-        return (excess_returns.mean() / downside_returns.std()) * np.sqrt(252)
-
-
     def get_metrics(self, risk_free_rate):
 
         alpha_returns = pd.Series(self.daily_pnl_log) / self.initial_capital
@@ -242,8 +227,8 @@ class Backtester:
             "total_return": (self.equity_curve[-1] / self.initial_capital) - 1,
             "max_drawdown": (pd.Series(self.equity_curve) / pd.Series(self.equity_curve).cummax() - 1).min(),
             "alpha_sharpe_ratio": (alpha_returns.mean() / alpha_returns.std()) * np.sqrt(252),
-            "sharpe_ratio": self.compute_sharpe_ratio(returns, risk_free_rate) if len(returns) > 0 else 0,
-            "sortino_ratio": self.compute_sortino_ratio(returns, risk_free_rate) if len(returns) > 0 else 0,
+            "sharpe_ratio": compute_sharpe_ratio(returns, risk_free_rate) if len(returns) > 0 else 0,
+            "sortino_ratio": compute_sortino_ratio(returns, risk_free_rate) if len(returns) > 0 else 0,
             "turnover": len(self.closed_tranches) * 2,
             "trade_count": self.trade_count
         }

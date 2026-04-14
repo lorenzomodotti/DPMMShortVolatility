@@ -3,7 +3,7 @@ import numpy as np
 from itertools import product
 from src.wfo import WalkForwardOptimizer
 from src.config import *
-from src.outputs import print_backtest_metrics, plot_equity_curves, plot_drawdown, plot_monthly_returns, plot_rolling_correlation
+from src.outputs import *
 
 # Length of training windows (calendar days)
 window_train = 550
@@ -63,6 +63,7 @@ if __name__ == "__main__":
         spx=True
     )
     backtest_metrics_no, equity_curve_no, daily_returns_no, _ = wfo.run_wfo()
+
     df_test_data = wfo.get_test_data()
     spx_returns = df_test_data['close'].pct_change().dropna()
     print_backtest_metrics(backtest_metrics_no, strategy_name)
@@ -141,8 +142,6 @@ if __name__ == "__main__":
         spx=True
     )
     backtest_metrics_ef, equity_curve_ef, daily_returns_ef, _ = wfo.run_wfo()
-    df_test_data = wfo.get_test_data()
-    spx_returns = df_test_data['close'].pct_change().dropna()
     print_backtest_metrics(backtest_metrics_ef, strategy_name)
     plot_drawdown(equity_curve_ef, strategy_name, PATH_PLOT_DRAWDOWN.format("ef"))
     plot_monthly_returns(daily_returns_ef, strategy_name, PATH_PLOT_RETURNS.format("ef"))
@@ -159,3 +158,6 @@ if __name__ == "__main__":
     )
     equity_curves.columns = ['no_rule', 'edge_rule', 'fear_rule', 'edge_fear_rule']
     plot_equity_curves(equity_curves, initial_capital, PATH_PLOT_EQUITY)
+
+    df_test_data = wfo.get_test_data()
+    print_backtest_metrics(get_metrics(df_test_data['close'], df_test_data['r_daily']), strategy = "Long")

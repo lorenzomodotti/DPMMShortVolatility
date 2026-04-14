@@ -45,3 +45,16 @@ def bs_iv(row):
         return brentq(objective, 0.0001, 5.0, xtol=1e-5)
     except (ValueError, RuntimeError):
         return np.nan
+    
+def compute_sharpe_ratio(returns, risk_free_rate = 0.0):
+    excess_returns = returns - risk_free_rate
+    if excess_returns.std() == 0:
+        return 0
+    return (excess_returns.mean() / excess_returns.std()) * np.sqrt(252)
+
+def compute_sortino_ratio(returns, risk_free_rate = 0.0):
+    excess_returns = returns - risk_free_rate
+    downside_returns = excess_returns[excess_returns < 0]
+    if len(downside_returns) < 2 or downside_returns.std() == 0:
+        return 0
+    return (excess_returns.mean() / downside_returns.std()) * np.sqrt(252)

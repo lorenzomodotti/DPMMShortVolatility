@@ -4,7 +4,7 @@
 ### Context
 In asset management and quantitative finance, capturing the variance risk premium, namely the spread between implied and realized volatility, is a well-known source of returns. Since market participants are willing to pay a premium for downside protection, acting as an insurer generates consistent yield. This dynamic is foundational to short-volatility strategies but leaves portfolios vulnerable to sudden market crashes.
 
-In a naive short-volatility strategy an investor receives and holds volatility premium on a regular basis (e.g. monthly) regardless of the broader financial and macroeconomic environment. This strategy is exposed to massive tail risk because during market turmoils volatility investments incur disproportional losses that offset the persistent returns accrued.
+In a naive short-volatility strategy an investor receives and holds volatility premium on a regular basis (e.g. daily or monthly) regardless of the broader financial and macroeconomic environment. This strategy is exposed to massive tail risk because during market turmoils volatility investments incur disproportional losses that offset the persistent returns accrued.
 
 To mitigate tail risk, it is possible to rely on backward- and forward-looking filters, or hedging. However, these technical filters are often lagging indicators that fail to react quickly enough to abrupt regime changes, and continuously buying insurance erodes the collected premium.
 
@@ -12,7 +12,7 @@ The proposed probabilistic framework dynamically adapts to market conditions by 
 
 ### Theoretical Framework & Methodology
 
-To mitigate tail risk while collecting volatility premium, the proposed rule-based strategy executes a trade only if there is a high probability of being in a normal market regime, and a large enough edge on the volatility premium.
+To mitigate tail risk while collecting volatility premium, the proposed rule-based strategy executes a trade only if the market is not in a fear regime and the volatility premium has a large enough edge to offset costs.
 
 #### DPMM
 To identify latent market regimes, the framework employs a non-parametric Bayesian approach to cluster implied volatility smiles.  
@@ -51,126 +51,97 @@ After training the DPMM, the posterior probability that day $t$ belongs to regim
 ```math
     \hat\phi_{t,k} = \frac{\exp\{\ell_{t,k}\}}{\sum_{j=1}^K \exp\{\ell_{t,j}\}}, \qquad \ell_{t,k} = \log \hat\pi_k + \log p(Y_t \, | \, \hat\beta_t, \hat\pi ; X, \tau).
 ```
+Given the posterior probabilities and the estimated centroids of volatility smiles, the posterior mean volatility smile for day $t$ can be recovered as
+```math
+    \hat{Y_t} = \sum_{k=1}^K \hat\phi_{t,k} X\hat\beta_{t,k}.
+```
+Using this posterior mean volatility smile, it is possible to define a "fear score" based on the level of ATM implied volatility, the skew of the smile, and the curvature of the smile:
+```math
+    \text{psi}_t = 0.2 * L_t + 0.6 * S_t + 0.2 * C_t,
+```
+where
+```math
+    L_t = \frac{\hat{Y_{t, \text{ATM}}}}{\bar{Y_{t, \text{ATM}}}} \qquad S_t = \frac{\hat{Y_{t, \text{Put}}}-\hat{Y_{t, \text{ATM}}}}{\hat{Y_{t, \text{ATM}}}}, \qquad C_t = \frac{\hat{Y_{t, \text{Put}}}+\hat{Y_{t, \text{Call}}}-2\hat{Y_{t, \text{ATM}}}}{\hat{Y_{t, \text{ATM}}}},
+```
+where $\hat{Y_{t, \text{ATM}}}$ is the value of ATM implied volatility, $\hat{Y_{t, \text{Put}}}$ is the value of deep OTM puts, and $\hat{Y_{t, \text{Call}}}$ is the value of deep OTM calls. Intuitively, $L_t$ quantifies how expensive the market is relative to its recent history, $S_t$ quantifies the price investors are paying for downside protection, and $C_t$ quantifies convexity of the smile.
 
 ---
 
-<p align="center">
-<img width="889" height="428" alt="image" src="https://github.com/user-attachments/assets/0a28bbce-4c12-4d6a-80e6-3b4ee93e434e" />
-</p>
 
-<p align="center">
-<img width="1490" height="1629" alt="image" src="https://github.com/user-attachments/assets/63d53e2f-ee11-4942-892f-494508b8aca7" />
-</p>
 
 ---
 
-#### GARCH-X
-To forecast the volatility premium, the framework employs a GARCH-X model.  
-Log-returns $r_t$ are assumed to evolve as
+#### HAR
+To forecast realized volatility over the holding horizon $H$, the framework employs a Heterogeneous Auto Regressive (HAR) model.  
+Given daily realized volatility $s_t$ for day $t$ computed from high-frequency intraday log-returns $\{r_{t,n}\}_n$:
 ```math
-    r_t = \mu + \epsilon_t,
+    s_t = \sqrt{252} \sqrt{ \sum_{n} r_{t,n}^2 + \left( \ln \left( \frac{\text{open}_t}{\text{close}_t} \right) \right)^2 },
 ```
-where $\epsilon_t = \sigma_t z_t$ with $z_t \sim \text{Norm}(0,1)$ and variance defined by the GARCH-X recursion
+regressors for the HAR model include the average past weekly and monthly volatility, and are computed as:
 ```math
-    \sigma_t^2 = \omega + \alpha \epsilon_{t-1}^2 + \beta \sigma_{t-1}^2 + \gamma S_{t-1}.
+    s_{t, \text{w}} = \frac{1}{5}\sum_{h=1}^5 s_{t+1-h}, \qquad s_{t, \text{m}} = \frac{1}{21}\sum_{h=1}^21 s_{t+1-h},
 ```
-The exogenous variable $S$ is a variance proxy based on Parkinson volatility $P$
+while the target is the average future volatility over over the holding horizon $T$:
 ```math
-    S_t = (b_0 + b_1 P_t)^2, \qquad P_t = \sqrt{ \frac{1}{4 \ln(2)} \left( \ln\left(\frac{\text{high}_t}{\text{low}_t}\right) \right)^2 },
+    s_{t, H} = \frac{1}{H}\sum_{h=1}^H s_{t+h}.
 ```
-where the coefficients $b_0, b_1$ are estimated by regressing high-frequency realized variance $s_t^2$ on Parkinson volatility
+The HAR specification
 ```math
-    s_t^2 = b_0 + b_1 P_t.
+    s_{t, T} = \beta_0 + \beta_1 s_t + \beta_2 s_{t, \text{w}} + \beta_3 s_{t, \text{m}} + \varepsilon_t
 ```
-Daily realized volatility $s_t$ for day $t$ is computed from high-frequency intraday log-returns $\{r_{t,n}\}_n$ as
-```math
-    s_t = \sqrt{252} \sqrt{ \sum_{n} r_{t,n}^2 + \left( \ln \left( \frac{\text{open}_t}{\text{close}_t} \right) \right)^2 }.
-```
-Given the estimated GARCH-X parameters $\hat\omega,\hat\alpha,\hat\beta,\hat\gamma$ and the long-run persistance
-```math
-    \hat\rho = \hat\alpha + \hat\beta + \hat\gamma \, \text{median}(\{S_t\}_t),
-```
-volatility is forecasted over a the future time horizon of $H$ days as
-```math
-    \hat\sigma_{t,H} = \sqrt{\frac{252}{H}} \sqrt{H \frac{\hat\omega}{1-\hat\rho} + \left(\sigma_t^2 - \frac{\hat\omega}{1-\hat\rho}\right) \frac{\hat\rho(1-\hat\rho^H)}{1-\hat\rho} }.
-```
+can be fitted by OLS with Heteroskedasticity- and Autocorrelation-Consistent (HAC) standard errors.
 ---
 
-<p align="center">
-<img width="1185" height="696" alt="image" src="https://github.com/user-attachments/assets/57d5a795-3f60-4cf6-8dcd-a1fbf9bb98b1" />
-</p>
+
 
 ---
+### Trading Strategy
+The proposed systematic short volatility strategy on the SPY enters a trade on day $t$ only if:
+- there is a large enough edge on volatility premium: $\text{IV}_t - \hat\s_{t,21} - (\text{spread_ratio}_t \text{IV}_t) > \delta_{\sigma}$
+- there is a low market fear score: $\psi_t < \delta_{\psi}$
+- the underlying instrument does not have negative momentum: $\text{SPY}_t >= \text{EMA}(\text{SPY}, 10)$
 
+A trade consists of:
+- selling ATM straddles on the SPY with 14 days to expiration
+- holding the position for 7 days
+- buying back the ATM straddles
+
+The number of contracts to buy is determined accounting for the holding period, margin requirement, and leverage.
+For each transaction, the backtester accounts for a fixed fee and charges the full spread (buy at ask, sell at bid).
+
+---
 ### Results & Performance
 The data comprises:
-- 4-Week Treasury Bill Secondary Market Rate (DTB4WK) for Sharpe Ratio calculation
+- 1-month US Treasury Rate for option pricing and backtesting
 - S&P 500 (SPY) option chain for DPMM volatility smile modeling
-- S&P 500 (SPY) intraday price for GARCH volatility prediction
-- S&P 500 (SPY) daily price for backtesting
+- S&P 500 (SPY) intraday price for HAR volatility prediction
+- S&P 500 (SPY) daily price and dividends for option pricing and backtesting
+and spans the horizon between February 2019 and March 2026.
 
-with the models trained on data from January 2008 to April 2021, and strategies backtested using daily market data from May 2021 to December 2025.  
-The strategies compared are:
-- Long SPY strategy: buy and hold SPY
-- Naive Short Volatility strategy: daily delta-hedged short volatility position on SPY 30-day options
-- Conditional Short Volatility strategy: daily delta-hedged short volatility position on SPY 30-day options with trade executed on day $t$ only if
-    - there is a large enough edge on volatility premium: $\text{IV}_t - \hat\sigma_{t,21} > \delta_{\sigma}$
-    - there is a high probability of being in a normal market regime: $\hat\phi_{t,\text{Normal}} > \delta_{\phi}$
+The proposed short straddle strategy is compared with the following ablations:
+- short straddle, no rules
+- short straddle, volatility edge rule only
+- short straddle, market fear rule only
 
-For backtesting we employ $\delta_{\sigma} = 1.0$ and $\delta_{\phi} = 0.75$. Compared to the baselines, the conditional Bayesian strategy drastically mitigates risk while capturing uncorrelated returns:
-- the strategy successfully predicts panic regimes, safely exiting trading positions, thus completely avoiding the volatility spike that made the naive strategy go bankrupt 
-- the strategy suffers a maximum drawdown of -26.0%, slighlty larger than the S&P 500's -25.0%, proving the ability to mitigate tail-risk
-- the strategy generates genuine alpha by achieving a total cumulative return of 159.08% (against the 56.12% of the SPY baseline) and a Sharpe Ratio of 1.10 (against 0.47)
-- the strategy exhibits uncorrelated returns from equities, with the rolling 60-day correlation to the SPY averaging 0.05
+The strategies are evaluated using Walk Forward Optimization:
+- DPMM and HAR models are trained on a training partition covering 1.5 years
+- the strategy parameters $\delta_{\sigma}$ and $\delta_{\psi}$ are optimized on a validation partition covering 4 months
+- the strategy is evaluated with the optimized parameters on a test partition covering 4 months
+Each partition is disjoint, and after completing one full pass (training, optimization, testing) each partition is shifted forward by the length of the test partition.
+
+The proposed strategy drastically mitigates risk while capturing returns. By reducing maximum drawdown by 57% and retaining 70% of total returns compared to the naive short straddle with no rules, the strategy significantly improves capital preservation while maintaining a competitive return profile. Morever, the combination of DPMM (fear) and HAR (edge) based rules allows to generate persistent alpha while also reducing trading frequency, thus isolating precise and profitable trading signals. 
 
 ---
 
 <div align="center">
-    
-| Strategy | Returns | Sharpe Ratio |
-| :--- | :---: | :---: |
-| Long SPY | $56.124\%$ | $0.472$ |
-| Naive Short Volatility | $-111.785\%$ | $-0.528$ |
-| Conditional Short Volatility | $159.076\%$ | $1.099$ |
+
+| Strategy | Total Return | Sharpe (Alpha) | Sharpe Ratio | Sortino Ratio | Max Drawdown | Trades |
+| :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| Short Straddle (No Rule) | $14.85\%$ | $0.0420$ | $0.3182$ | $0.4214$ | $-53.93\%$ | $435$ |
+| Short Straddle (Edge Rule) | $10.36\%$ | $0.7319$ | $0.2061$ | $0.1655$ | $-31.65\%$ | $281$ |
+| Short Straddle (Fear Rule) | $14.73\%$ | $0.3044$ | $0.2532$ | $0.1991$ | $-29.26\%$ | $294$ |
+| Short Straddle (Edge+Fear) | $10.36\%$ | $0.7863$ | $0.1809$ | $0.1244$ | $-23.15\%$ | $230$ |
 
 </div>
 
----
 
-<p align="center">
-<img width="1186" height="695" alt="image" src="https://github.com/user-attachments/assets/a556f370-c868-4e96-8e24-7dd71dc949e9" />
-</p>
-
----
-
-<p align="center">
-<img width="1189" height="390" alt="image" src="https://github.com/user-attachments/assets/2e8f8ef1-6515-4cdc-8aac-fdc964b65067" />
-</p>
-
-<p align="center">
-<img width="1189" height="390" alt="image" src="https://github.com/user-attachments/assets/e2642e19-04e9-443f-8a0e-c9a6e11295e1" />
-</p>
-
-<p align="center">
-<img width="1189" height="390" alt="image" src="https://github.com/user-attachments/assets/c55f0557-09bd-40d9-879e-589095f01b9e" />
-</p>
-
----
-
-<p align="center">
-<img width="1186" height="489" alt="image" src="https://github.com/user-attachments/assets/2c7569f4-8977-4cdb-a5a4-b153a6ee4bee" />
-</p>
-
----
-
-<p align="center">
-<img width="1042" height="374" alt="image" src="https://github.com/user-attachments/assets/b330604f-1032-4c3c-b56b-9372866309f9" />
-</p>
-
-<p align="center">
-<img width="1037" height="374" alt="image" src="https://github.com/user-attachments/assets/711f3345-fea4-448e-9b06-b2d00420692e" />
-</p>
-
-<p align="center">
-<img width="1042" height="374" alt="image" src="https://github.com/user-attachments/assets/5b38348e-dca7-46a0-a077-8939e0276664" />
-</p>

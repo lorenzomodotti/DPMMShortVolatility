@@ -447,9 +447,10 @@ class WalkForwardOptimizer:
         part1 = df_realized_vol.loc[valid_indices, ['close', 'vol']]
         part2 = df_strategy.loc[valid_indices, ['atm_iv', 'vol_forecast', 'edge', 'fear_score']]
         part3 = trading_signals.loc[valid_indices]
+        part4 = self.df_treasury_daily_rate.loc[valid_indices, 'r_daily']
 
         # Concatenate columns
-        new_data = pd.concat([part1, part2, part3], axis=1)
+        new_data = pd.concat([part1, part2, part3, part4], axis=1)
 
         # Store test partition data
         self.test_data.append(new_data)
