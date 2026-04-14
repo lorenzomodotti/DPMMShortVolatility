@@ -166,7 +166,7 @@ The proposed strategy drastically mitigates risk while capturing returns. By red
 
 <p align="center">
 <img width="3568" height="1468" alt="correlation_ef" src="https://github.com/user-attachments/assets/87d339af-6361-4014-9356-a7dbeae598fb" />
-</p><img width="1490" height="1629" alt="regimes" src="https://github.com/user-attachments/assets/edc0bb3e-143a-4a09-811b-6bff9359db91" />
+</p>
 
 ---
 
