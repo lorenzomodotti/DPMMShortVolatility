@@ -57,7 +57,7 @@ Given the posterior probabilities and the estimated centroids of volatility smil
 ```
 Using this posterior mean volatility smile, it is possible to define a "fear score" based on the level of ATM implied volatility, the skew of the smile, and the curvature of the smile:
 ```math
-    \text{psi}_t = 0.2 * L_t + 0.6 * S_t + 0.2 * C_t,
+    \text{\psi}_t = 0.2 * L_t + 0.6 * S_t + 0.2 * C_t,
 ```
 where
 ```math
@@ -90,6 +90,7 @@ The HAR specification
     s_{t, T} = \beta_0 + \beta_1 s_t + \beta_2 s_{t, \text{w}} + \beta_3 s_{t, \text{m}} + \varepsilon_t
 ```
 can be fitted by OLS with Heteroskedasticity- and Autocorrelation-Consistent (HAC) standard errors.
+
 ---
 
 
@@ -137,10 +138,10 @@ The proposed strategy drastically mitigates risk while capturing returns. By red
 
 | Strategy | Total Return | Sharpe (Alpha) | Sharpe Ratio | Sortino Ratio | Max Drawdown | Trades |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
-| Short Straddle (No Rule) | $14.85\%$ | $0.0420$ | $0.3182$ | $0.4214$ | $-53.93\%$ | $435$ |
-| Short Straddle (Edge Rule) | $10.36\%$ | $0.7319$ | $0.2061$ | $0.1655$ | $-31.65\%$ | $281$ |
-| Short Straddle (Fear Rule) | $14.73\%$ | $0.3044$ | $0.2532$ | $0.1991$ | $-29.26\%$ | $294$ |
-| Short Straddle (Edge+Fear) | $10.36\%$ | $0.7863$ | $0.1809$ | $0.1244$ | $-23.15\%$ | $230$ |
+| No Rule | $14.85\%$ | $0.0420$ | $0.3182$ | $0.4214$ | $-53.93\%$ | $435$ |
+| Edge Rule | $10.36\%$ | $0.7319$ | $0.2061$ | $0.1655$ | $-31.65\%$ | $281$ |
+| Fear Rule | $14.73\%$ | $0.3044$ | $0.2532$ | $0.1991$ | $-29.26\%$ | $294$ |
+| Edge+Fear Rule | $10.36\%$ | $0.7863$ | $0.1809$ | $0.1244$ | $-23.15\%$ | $230$ |
 
 </div>
 
