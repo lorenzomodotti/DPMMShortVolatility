@@ -57,7 +57,7 @@ Given the posterior probabilities and the estimated centroids of volatility smil
 ```
 Using this posterior mean volatility smile, it is possible to define a "fear score" based on the level of ATM implied volatility, the skew of the smile, and the curvature of the smile:
 ```math
-    \text{\psi}_t = 0.2 * L_t + 0.6 * S_t + 0.2 * C_t,
+    \psi_t = 0.2 * L_t + 0.6 * S_t + 0.2 * C_t,
 ```
 where
 ```math
