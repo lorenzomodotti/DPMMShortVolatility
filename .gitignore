@@ -6,3 +6,4 @@
 *.yaml
 *.ckpt
 *.png
+src/outputs.py

@@ -212,14 +212,14 @@ class WalkForwardOptimizer:
             self._log_results(best_parameters_key, valid_metrics)
             self._clean_and_update()
 
-        self._plot()
+        # self._plot()
         
         # Retrieve backtesting metrics over all test partitions
         backtest_metrics = self.backtester.get_metrics(self.df_treasury_daily_rate['r_daily'])
         # Retrieve equity curve over all test partitions
-        equity_curve = self.backtester.get_equity_curve()
+        equity_curve, daily_returns = self.backtester.get_equity_curve()
 
-        return backtest_metrics, equity_curve, pd.DataFrame(self.logged_valid_results)
+        return backtest_metrics, equity_curve, daily_returns, pd.DataFrame(self.logged_valid_results)
 
     def _run_wfo_partition(self):
         # Train models on training partition
@@ -486,3 +486,8 @@ class WalkForwardOptimizer:
             df_test_data['fear_score'],
             path = PATH_PLOT_SIGNALS
         )
+
+    def get_test_data(self):
+        df_test_data = pd.concat(self.test_data, axis=0).sort_index()
+        df_test_data = df_test_data[~df_test_data.index.duplicated(keep='last')].sort_index()
+        return df_test_data

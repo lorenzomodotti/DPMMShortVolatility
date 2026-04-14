@@ -38,7 +38,13 @@ PATH_PLOT_PRICE = "plots/price.png"
 PATH_PLOT_SIGNALS = "plots/signals.png"
 
 # Path equity curve plot
-PATH_PLOT_EQUITY = "plots/equity_curve_{}.png"
+PATH_PLOT_EQUITY = "plots/equity_curves.png"
 
 # Path drawdown plot
 PATH_PLOT_DRAWDOWN = "plots/drawdown_{}.png"
+
+# Path returns map
+PATH_PLOT_RETURNS = "plots/returns_{}.png"
+
+# Path correlation plot
+PATH_PLOT_CORR = "plots/correlation_{}.png"

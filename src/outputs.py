@@ -149,34 +149,6 @@ def plot_cluster_probabilities(df_regimes, vol_series, price_series, rolling_win
     else:
         plt.show()
 
-def plot_performance(results_df, df_daily):
-    """
-    Plot the performance of the trading strategies
-    """
-    
-    # SPY Buy & Hold (normalized to start at 1)
-    spy_curve = df_daily.loc[results_df.index, 'close']
-    spy_curve = 100 * spy_curve / spy_curve.iloc[0]
-    
-    # Strategy volatility shorting with Bayesian rule
-    strategy_curve = 100 * results_df['conditional_curve']
-
-    naive_curve = (100 * results_df['naive_curve']).clip(lower=0)
-    
-    fig, ax = plt.subplots(figsize=(12, 7))
-    
-    ax.plot(strategy_curve.index, strategy_curve, label='Conditional Short Volatility', color='black', linewidth=2)
-    ax.plot(naive_curve.index, naive_curve, label='Naive Short Volatility', color="black", linestyle='--')
-    ax.plot(spy_curve.index, spy_curve, label='Long SPY', color='grey', alpha=0.4)
-    
-    ax.set_title("Performance Comparison", fontsize=14)
-    ax.set_ylabel("Returns (%)", fontsize=12)
-    ax.yaxis.set_major_formatter(mtick.StrMethodFormatter('{x:,.2f}'))
-    ax.grid(True, alpha=0.3)
-    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False)
-    plt.tight_layout()
-    plt.show()
-
 def plot_drawdown(curve, label, path=None):
     """
     Calculate and plot drawdown
@@ -198,7 +170,7 @@ def plot_drawdown(curve, label, path=None):
     else:
         plt.show()
 
-def plot_monthly_returns(daily_returns, label):
+def plot_monthly_returns(daily_returns, label, path=None):
     """
     Transforms daily returns into a Month vs Year grid and plots a heatmap
     """
@@ -232,26 +204,25 @@ def plot_monthly_returns(daily_returns, label):
     plt.xlabel('')
     ax.xaxis.tick_top()
     plt.tight_layout()
-    plt.show()
-    return returns_grid
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
 
-def plot_rolling_correlation(results_df, df_daily, window=60):
+
+def plot_rolling_correlation(daily_returns_strategy, daily_returns_benchmark, label, window=60, path=None):
     """
     Plot the rolling correlation between the strategy and SPY
     """
     
-    # Align dates
-    spy_returns = df_daily['return']
-    strategy_returns = results_df['conditional_daily_return']
-    
     # Combine returns
     comparison = pd.DataFrame({
-        'Strategy': strategy_returns,
-        'SPY': spy_returns
+        'strategy': daily_returns_strategy,
+        'benchmark': daily_returns_benchmark
     }).dropna()
     
     # Compute rolling correlation
-    rolling_corr = comparison['Strategy'].rolling(window=window).corr(comparison['SPY'])
+    rolling_corr = comparison['strategy'].rolling(window=window).corr(comparison['benchmark'])
     
     # Plot
     fig, ax = plt.subplots(figsize=(12, 5))
@@ -263,9 +234,9 @@ def plot_rolling_correlation(results_df, df_daily, window=60):
     ax.axhline(-0.5, color='grey', linestyle='--', linewidth=0.8, alpha=0.5)
 
     avg_corr = rolling_corr.mean()
-    ax.set_title(f"Rolling Correlation: Conditional Short Volatility vs Long SPY\nAverage Correlation: {avg_corr:.2f}", fontsize=14)
+    ax.set_title(f"Rolling Correlation: {label} vs Long \nAverage Correlation: {avg_corr:.2f}", fontsize=14)
     ax.set_ylabel(f'{window}-day Correlation', fontsize=12)
-    ax.set_ylim(-1.0, 1.0) # Correlation is bounded [-1, 1]
+    ax.set_ylim(-1.0, 1.0)
     
     ax.fill_between(rolling_corr.index, rolling_corr, 0, where=(rolling_corr >= 0), color='black', alpha=0.1)
     ax.fill_between(rolling_corr.index, rolling_corr, 0, where=(rolling_corr < 0), color='red', alpha=0.1)
@@ -273,22 +244,13 @@ def plot_rolling_correlation(results_df, df_daily, window=60):
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.show()
+    if path is not None:
+        plt.savefig(path, dpi=300, bbox_inches='tight')
+    else:
+        plt.show()
 
-def print_returns(returns_dict):
-    print("\nReturns:")
-    print(f" > Long SPY: {returns_dict['long']:.3f}%")
-    print(f" > Naive Short Volatility: {returns_dict['naive']:.3f}%")
-    print(f" > Conditional Short Volatility: {returns_dict['conditional']:.3f}%")
-
-def print_sharpes(sharpes_dict):
-    print("\nSharpe Ratio:")
-    print(f" > Long SPY: {sharpes_dict['long']:.3f}")
-    print(f" > Naive Short Volatility: {sharpes_dict['naive']:.3f}")
-    print(f" > Conditional Short Volatility: {sharpes_dict['conditional']:.3f}")
-
-def print_backtest_metrics(backtest_metrics):
-    print("\n----- Backtest Results -----")
+def print_backtest_metrics(backtest_metrics, strategy = ""):
+    print(f"\n----- Backtest Results {strategy} -----")
     print(f"Total Return: {backtest_metrics['total_return']:.4f}")
     print(f"Sharpe Ratio (Alpha): {backtest_metrics['alpha_sharpe_ratio']:.4f}")
     print(f"Sharpe Ratio: {backtest_metrics['sharpe_ratio']:.4f}")
@@ -298,22 +260,54 @@ def print_backtest_metrics(backtest_metrics):
     print(f"Turnover: {backtest_metrics['turnover']:.0f}")
     print("----- ---------------- -----\n")
 
-def plot_equity_curve(equity_curve, initial_capital, path = None):
+def plot_performance(results_df, df_daily):
+    """
+    Plot the performance of the trading strategies
+    """
+    
+    # SPY Buy & Hold (normalized to start at 1)
+    spy_curve = df_daily.loc[results_df.index, 'close']
+    spy_curve = 100 * spy_curve / spy_curve.iloc[0]
+    
+    # Strategy volatility shorting with Bayesian rule
+    strategy_curve = 100 * results_df['conditional_curve']
+
+    naive_curve = (100 * results_df['naive_curve']).clip(lower=0)
+    
+    fig, ax = plt.subplots(figsize=(12, 7))
+    
+    ax.plot(strategy_curve.index, strategy_curve, label='Conditional Short Volatility', color='black', linewidth=2)
+    ax.plot(naive_curve.index, naive_curve, label='Naive Short Volatility', color="black", linestyle='--')
+    ax.plot(spy_curve.index, spy_curve, label='Long SPY', color='grey', alpha=0.4)
+    
+    ax.set_title("Performance Comparison", fontsize=14)
+    ax.set_ylabel("Returns (%)", fontsize=12)
+    ax.yaxis.set_major_formatter(mtick.StrMethodFormatter('{x:,.2f}'))
+    ax.grid(True, alpha=0.3)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False)
+    plt.tight_layout()
+    plt.show()
+
+def plot_equity_curves(equity_curves, initial_capital, path = None):
     """
     Plot the performance of the trading strategies
     """
 
-    equity_curve = equity_curve / initial_capital
+    equity_curves = equity_curves / initial_capital
     
     plt.figure(figsize=(12, 4))
     
-    plt.plot(equity_curve.index, equity_curve, label='Conditional Short Volatility', color='black', linewidth=2)
+    #plt.plot(equity_curves.index, equity_curves['long'], label='Long', color='gray', alpha=0.4)
+    plt.plot(equity_curves.index, equity_curves['no_rule'], label='Short Straddle (No Rule)', color='darkgray', linestyle=':')
+    plt.plot(equity_curves.index, equity_curves['edge_rule'], label='Short Straddle (Edge Rule)', color='darkgray', linestyle='-.')
+    plt.plot(equity_curves.index, equity_curves['fear_rule'], label='Short Straddle (Fear Rule)', color='darkgray', linestyle='--')
+    plt.plot(equity_curves.index, equity_curves['edge_fear_rule'], label='Short Straddle (Edge+Fear Rule)', color='black', linewidth=2)
     
     plt.title("Performance Comparison", fontsize=14)
     plt.ylabel("Returns (%)", fontsize=12)
     plt.gca().yaxis.set_major_formatter(mtick.PercentFormatter(1.0))
     plt.grid(True, alpha=0.3)
-    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.15), ncol=3, frameon=False)
+    plt.legend(loc='lower center', bbox_to_anchor=(0.5, -0.20), ncol=4, frameon=False)
     plt.tight_layout()
     if path is not None:
         plt.savefig(path, dpi=300, bbox_inches='tight')
@@ -343,7 +337,7 @@ def plot_signals(edge, fear_score, path = None):
     ax1.grid(True, alpha=0.3)
 
     ax2.plot(fear_score.index, fear_score, color='black', linestyle = '-', label='Fear Score')
-    ax2.set_ylabel("Fear Score", rotation=270, labelpad=15)
+    ax2.set_ylabel("Fear Score")
     ax2.grid(True, alpha=0.3)
 
     fig.legend(loc='lower center', bbox_to_anchor=(0.5, -0.03), frameon=False)

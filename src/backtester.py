@@ -251,8 +251,16 @@ class Backtester:
     
     
     def get_equity_curve(self, name = 'equity_curve'):
-        return pd.Series(
+        equity_curve = pd.Series(
             self.equity_curve,
             index = self.trading_days,
             name = name
         )
+
+        daily_returns = pd.Series(
+            self.equity_curve,
+            index = self.trading_days,
+            name = name
+        ).pct_change().dropna()
+
+        return equity_curve, daily_returns
