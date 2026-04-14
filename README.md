@@ -67,7 +67,9 @@ where $\hat{Y_{t, \text{ATM}}}$ is the value of ATM implied volatility, $\hat{Y_
 
 ---
 
-
+<p align="center">
+<img width="1490" height="1629" alt="regimes" src="https://github.com/user-attachments/assets/69d321a0-34a6-4e9b-ada9-25ec17322c8c" />
+</p>
 
 ---
 
@@ -93,9 +95,12 @@ can be fitted by OLS with Heteroskedasticity- and Autocorrelation-Consistent (HA
 
 ---
 
-
+<p align="center">
+<img width="3570" height="2088" alt="volatility" src="https://github.com/user-attachments/assets/514ed974-8c59-4590-8c5a-50f2e2940c52" />
+</p>
 
 ---
+
 ### Trading Strategy
 The proposed systematic short volatility strategy on the SPY enters a trade on day $t$ only if:
 - there is a large enough edge on volatility premium: $\text{IV}_t - \hat\s_{t,21} - (\text{spread_ratio}_t \text{IV}_t) > \delta_{\sigma}$
@@ -144,5 +149,32 @@ The proposed strategy drastically mitigates risk while capturing returns. By red
 | Edge+Fear Rule | $10.36\%$ | $0.7863$ | $0.1809$ | $0.1244$ | $-23.15\%$ | $230$ |
 
 </div>
+
+---
+
+<p align="center">
+<img width="3446" height="1160" alt="equity_curves" src="https://github.com/user-attachments/assets/069a8e5b-90bc-41a5-8d16-c6c26d62848a" />
+</p>
+
+---
+
+<p align="center">
+<img width="3102" height="1116" alt="drawdown_ef" src="https://github.com/user-attachments/assets/77f47ae1-09d4-4870-a709-4d22e56ae4ce" />
+</p>
+
+---
+
+<p align="center">
+<img width="3568" height="1468" alt="correlation_ef" src="https://github.com/user-attachments/assets/87d339af-6361-4014-9356-a7dbeae598fb" />
+</p><img width="1490" height="1629" alt="regimes" src="https://github.com/user-attachments/assets/edc0bb3e-143a-4a09-811b-6bff9359db91" />
+
+---
+
+<p align="center">
+<img width="3568" height="1408" alt="returns_ef" src="https://github.com/user-attachments/assets/3b7a40c4-6af5-438d-9e29-d9c450f16157" />
+</p>
+
+---
+
 
 
